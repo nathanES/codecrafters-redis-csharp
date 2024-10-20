@@ -8,13 +8,15 @@ internal class Program
     {
         TcpListener server = new TcpListener(IPAddress.Any, 6379);//Port 6379 is the default port for Redis
         server.Start();
-        var sockets = server.AcceptSocket(); // wait for client 
-        while(sockets.Connected)
+        while (true)
         {
-            var buffer = new byte[1_024];
-            await sockets.ReceiveAsync(buffer);
-            await sockets.SendAsync(FormatResponse("PONG"));
-            string request = Encoding.UTF8.GetString(buffer);
+            var sockets = server.AcceptSocket(); // wait for client 
+            while(sockets.Connected)
+            {
+                var buffer = new byte[1_024];
+                await sockets.ReceiveAsync(buffer);
+                await sockets.SendAsync(FormatResponse("PONG"));
+            }
         }
 
         byte[] FormatResponse(string response)
