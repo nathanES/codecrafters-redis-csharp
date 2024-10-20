@@ -10,10 +10,10 @@ internal class Program
         server.Start();
         while (true)
         {
-            var sockets = server.AcceptSocket(); // wait for client 
+            var sockets = await server.AcceptSocketAsync(); // wait for client 
             while(sockets.Connected)
             {
-                var buffer = new byte[1_024];
+                var buffer = new byte[sockets.ReceiveBufferSize];
                 await sockets.ReceiveAsync(buffer);
                 await sockets.SendAsync(FormatResponse("PONG"));
             }
