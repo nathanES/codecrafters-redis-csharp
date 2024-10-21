@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using codecrafters_redis;
 
 internal class Program
 {
@@ -27,10 +28,25 @@ internal class Program
                             System.Console.WriteLine("Connection closed");
                             break; //Connection closed
                         }
-    
-                        System.Console.WriteLine("Sending Response");
-                        await socket.SendAsync(FormatResponse("PONG"),SocketFlags.None );
-                        System.Console.WriteLine("Response sent");
+
+                        var (command, arguments) = RespParser.ParseRequest(buffer[..bytesReceived]);
+                        switch (command.ToUpper())
+                        {
+                            case "PING":
+                                System.Console.WriteLine("Sending Response");
+                                await socket.SendAsync(FormatResponse("PONG"),SocketFlags.None );
+                                System.Console.WriteLine("Response sent");
+                                break;
+                                case "ECHO" :
+                                System.Console.WriteLine("Sending Response");
+                                await socket.SendAsync(FormatResponse(arguments[0]),SocketFlags.None );
+                                System.Console.WriteLine("Response sent");
+                                    break;
+                            default:
+                                throw new NotImplementedException("Command not handled");
+                        }
+                        
+                        
                     }
                 }
                 catch(Exception e)
@@ -49,6 +65,9 @@ internal class Program
                 }
             });
         }
+  
+
+
 
         byte[] FormatResponse(string response)
         {
