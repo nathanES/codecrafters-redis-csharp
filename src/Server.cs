@@ -33,12 +33,10 @@ internal class Program
                         switch (command.ToUpper())
                         {
                             case "PING":
-                                System.Console.WriteLine("Sending Response");
                                 await socket.SendAsync(FormatResponse("PONG"),SocketFlags.None );
                                 System.Console.WriteLine("Response sent");
                                 break;
                                 case "ECHO" :
-                                System.Console.WriteLine("Sending Response");
                                 await socket.SendAsync(FormatResponse(arguments[0]),SocketFlags.None );
                                 System.Console.WriteLine("Response sent");
                                     break;
