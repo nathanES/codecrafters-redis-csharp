@@ -5,7 +5,7 @@ using codecrafters_redis.KeyValue;
 
 namespace codecrafters_redis;
 
-internal static class Program
+internal class Program
 {
     private static async Task Main(string[] args)
     {
