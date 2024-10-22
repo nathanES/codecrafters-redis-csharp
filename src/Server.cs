@@ -1,75 +1,83 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using codecrafters_redis;
+using codecrafters_redis.Commands;
+using codecrafters_redis.KeyValue;
 
-internal class Program
+namespace codecrafters_redis;
+
+internal static class Program
 {
     private static async Task Main(string[] args)
     {
-        TcpListener server = new TcpListener(IPAddress.Any, 6379);//Port 6379 is the default port for Redis
+        TcpListener server = new TcpListener(IPAddress.Any, 6379); //Port 6379 is the default port for Redis
         server.Start();
         while (true)
         {
             var socket = await server.AcceptSocketAsync(); // wait for client 
             System.Console.WriteLine("Client connected");
-            _ = Task.Run(async() =>
+            _ = Task.Run(async () =>
             {
                 try
                 {
-                    while(socket.Connected)
+                    while (socket.Connected)
                     {
                         var buffer = new byte[1_024];
                         System.Console.WriteLine("Receiving Request");
                         int bytesReceived = await socket.ReceiveAsync(buffer, SocketFlags.None);
                         System.Console.WriteLine("Request received");
-                        if(bytesReceived == 0)
+                        if (bytesReceived == 0)
                         {
                             System.Console.WriteLine("Connection closed");
                             break; //Connection closed
                         }
 
-                        var (command, arguments) = RespParser.ParseRequest(buffer[..bytesReceived]);
-                        switch (command.ToUpper())
-                        {
-                            case "PING":
-                                await socket.SendAsync(FormatResponse("PONG"),SocketFlags.None );
-                                System.Console.WriteLine("Response sent");
-                                break;
-                                case "ECHO" :
-                                await socket.SendAsync(FormatResponse(arguments[0]),SocketFlags.None );
-                                System.Console.WriteLine("Response sent");
-                                    break;
-                            default:
-                                throw new NotImplementedException("Command not handled");
-                        }
-                        
-                        
+                        var (command, arguments) = RespRequestParser.ParseRequest(buffer[..bytesReceived]);
+                        await HandleRedisCommand(command, arguments, socket, new InMemoryKeyValueRepository());
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     System.Console.WriteLine("Exception : " + e.Message);
                 }
                 finally
                 {
-                   if (socket.Connected)
-                   {
-                    System.Console.WriteLine("ShutingDown the connection");
-                    socket.Shutdown(SocketShutdown.Both);
-                   }
-                   System.Console.WriteLine("Closing the connection");
-                   socket.Close();
+                    if (socket.Connected)
+                    {
+                        System.Console.WriteLine("ShutingDown the connection");
+                        socket.Shutdown(SocketShutdown.Both);
+                    }
+
+                    System.Console.WriteLine("Closing the connection");
+                    socket.Close();
                 }
             });
         }
-  
+    }
 
-
-
-        byte[] FormatResponse(string response)
+    private static async Task HandleRedisCommand(string command, string[] arguments, Socket socket, IKeyValueRepository keyValueRepository)
+    {
+        Console.WriteLine($"Command : {command}");
+        Console.WriteLine($"Arguments : {string.Join(',', arguments)}");
+        switch (command.ToUpper())
         {
-            return Encoding.UTF8.GetBytes($"+{response}\r\n");
+            case "PING":
+                await new PingCommand(socket).ExecuteAsync();
+                break;
+            case "ECHO":
+                await new EchoCommand(socket, arguments).ExecuteAsync();
+                break;
+            case "SET":
+                await new SetCommand(socket, arguments, keyValueRepository)
+                    .ExecuteAsync();
+                break;
+            case "GET" :
+                await new GetCommand(socket, arguments, keyValueRepository)
+                    .ExecuteAsync();
+                break;
+            default:
+                await socket.SendAsync(RespResponseParser.ParseRespError("ERR unknown command"),
+                    SocketFlags.None);
+                break;
         }
     }
 }

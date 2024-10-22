@@ -2,7 +2,7 @@ using System.Text;
 
 namespace codecrafters_redis;
 
-public static class RespParser
+public static class RespRequestParser
 {
     //Example of commands : *2\r\n$4\r\nECHO\r\n$5\r\nhello\r\n
     public static (string Command, string[] Args) ParseRequest(byte[] requestAsBytes)
@@ -57,7 +57,7 @@ public static class RespParser
         int length = ParseInteger(data, ref index);
 
         if (length == -1)
-            return null; //Null bulk string
+            return null!; //Null bulk string
 
         string result = Encoding.UTF8.GetString(data, index, length);
         index += length + 2; //skip over string data and \r\n
