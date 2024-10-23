@@ -11,7 +11,7 @@ internal class Program
     {
         TcpListener server = new TcpListener(IPAddress.Any, 6379); //Port 6379 is the default port for Redis
         server.Start();
-        IKeyValueRepository keyValueRepository = new InMemoryKeyValueRepository();
+        using IKeyValueRepository keyValueRepository = new InMemoryKeyValueRepository();
         while (true)
         {
             var socket = await server.AcceptSocketAsync(); // wait for client 
