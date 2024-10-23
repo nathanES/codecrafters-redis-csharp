@@ -5,13 +5,17 @@ public class InMemoryKeyValueRepository : IKeyValueRepository
     private Dictionary<string, string> _keyValueDictionary = new Dictionary<string, string>();
     public Task SetAsync(string key, string value)
     {
-        _keyValueDictionary.TryAdd(key, value);
+        var isKeyAdded = _keyValueDictionary.TryAdd(key, value);
+        Console.WriteLine($"keyAdded : {isKeyAdded.ToString()}");
         return Task.CompletedTask;
     }
 
     public Task<string?> GetAsync(string key)
     {
-        _keyValueDictionary.TryGetValue(key, out var value);
+        var isKeyGot = _keyValueDictionary.TryGetValue(key, out var value);
+
+        Console.WriteLine($"keyGot : {isKeyGot.ToString()}");
+
         return Task.FromResult(value); 
     }
 }

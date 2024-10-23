@@ -11,6 +11,7 @@ internal class Program
     {
         TcpListener server = new TcpListener(IPAddress.Any, 6379); //Port 6379 is the default port for Redis
         server.Start();
+        IKeyValueRepository keyValueRepository = new InMemoryKeyValueRepository();
         while (true)
         {
             var socket = await server.AcceptSocketAsync(); // wait for client 
@@ -32,7 +33,7 @@ internal class Program
                         }
 
                         var (command, arguments) = RespRequestParser.ParseRequest(buffer[..bytesReceived]);
-                        await HandleRedisCommand(command, arguments, socket, new InMemoryKeyValueRepository());
+                        await HandleRedisCommand(command, arguments, socket,keyValueRepository );
                     }
                 }
                 catch (Exception e)
