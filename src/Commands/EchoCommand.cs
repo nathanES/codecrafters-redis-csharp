@@ -8,13 +8,6 @@ public class EchoCommand(Socket socket, string[] args) : IRedisCommand
     {
         try
         {
-            if (args.Length != 1)
-            {
-                await socket.SendAsync(RespResponseParser.ParseRespError("Not valid number of arguments"),
-                    SocketFlags.None, cancellationToken);
-                return;
-            }
-
             await socket.SendAsync(RespResponseParser.ParseRespString(args[0]), 
                 SocketFlags.None, cancellationToken);
             return;

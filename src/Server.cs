@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
 using codecrafters_redis.Commands;
+using codecrafters_redis.Common;
+using codecrafters_redis.Configuration;
 using codecrafters_redis.KeyValue;
 
 namespace codecrafters_redis;
@@ -11,74 +13,64 @@ internal class Program
     {
         TcpListener server = new TcpListener(IPAddress.Any, 6379); //Port 6379 is the default port for Redis
         server.Start();
-        using IKeyValueRepository keyValueRepository = new InMemoryKeyValueRepository();
-        while (true)
+       
+        using IKeyValueRepository keyValueRepository = new InMemoryKeyValueRepository();//Using to stop the backThread
+        IConfigRepository configRepository = new InMemoryConfigRepository();
+        List<IRepository> repositories = new List<IRepository>(){keyValueRepository};
+
+        ConfigService configService = new ConfigService(configRepository);
+        List<IService> services = new List<IService>(){configService};
+
+        await configService.SetAsync(args);
+
+        try
         {
-            var socket = await server.AcceptSocketAsync(); // wait for client 
-            System.Console.WriteLine("Client connected");
-            _ = Task.Run(async () =>
+            while (true)
             {
-                try
+                var socket = await server.AcceptSocketAsync(); // wait for client 
+                Console.WriteLine("Client connected");
+                _ = Task.Run(async () =>
                 {
-                    while (socket.Connected)
+                    try
                     {
-                        var buffer = new byte[1_024];
-                        System.Console.WriteLine("Receiving Request");
-                        int bytesReceived = await socket.ReceiveAsync(buffer, SocketFlags.None);
-                        System.Console.WriteLine("Request received");
-                        if (bytesReceived == 0)
+                        while (socket.Connected)
                         {
-                            System.Console.WriteLine("Connection closed");
-                            break; //Connection closed
+                            var buffer = new byte[1_024];
+                            Console.WriteLine("Receiving Request");
+                            int bytesReceived = await socket.ReceiveAsync(buffer, SocketFlags.None);
+                            Console.WriteLine("Request received");
+                            if (bytesReceived == 0)
+                            {
+                                Console.WriteLine("Connection closed");
+                                break; //Connection closed
+                            }
+
+                            var (command, arguments) = RespRequestParser.ParseRequest(buffer[..bytesReceived]);
+                            await new CommandHandler(socket, repositories, services).HandleCommand(command, arguments);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Exception : " + e.Message);
+                    }
+                    finally
+                    {
+                        if (socket.Connected)
+                        {
+                            Console.WriteLine("ShutingDown the connection");
+                            socket.Shutdown(SocketShutdown.Both);
                         }
 
-                        var (command, arguments) = RespRequestParser.ParseRequest(buffer[..bytesReceived]);
-                        await HandleRedisCommand(command, arguments, socket,keyValueRepository );
+                        Console.WriteLine("Closing the connection");
+                        socket.Close();
                     }
-                }
-                catch (Exception e)
-                {
-                    System.Console.WriteLine("Exception : " + e.Message);
-                }
-                finally
-                {
-                    if (socket.Connected)
-                    {
-                        System.Console.WriteLine("ShutingDown the connection");
-                        socket.Shutdown(SocketShutdown.Both);
-                    }
-
-                    System.Console.WriteLine("Closing the connection");
-                    socket.Close();
-                }
-            });
+                });
+            }
         }
-    }
-
-    private static async Task HandleRedisCommand(string command, string[] arguments, Socket socket, IKeyValueRepository keyValueRepository)
-    {
-        Console.WriteLine($"Command : {command}");
-        Console.WriteLine($"Arguments : {string.Join(',', arguments)}");
-        switch (command.ToUpper())
+        finally
         {
-            case "PING":
-                await new PingCommand(socket).ExecuteAsync();
-                break;
-            case "ECHO":
-                await new EchoCommand(socket, arguments).ExecuteAsync();
-                break;
-            case "SET":
-                await new SetCommand(socket, arguments, keyValueRepository)
-                    .ExecuteAsync();
-                break;
-            case "GET" :
-                await new GetCommand(socket, arguments, keyValueRepository)
-                    .ExecuteAsync();
-                break;
-            default:
-                await socket.SendAsync(RespResponseParser.ParseRespError("ERR unknown command"),
-                    SocketFlags.None);
-                break;
+            server.Stop();
+            System.Console.WriteLine("Server stopped.");
         }
     }
 }

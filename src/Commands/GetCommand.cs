@@ -9,12 +9,6 @@ public class GetCommand(Socket socket, string[] args, IKeyValueRepository keyVal
     {
         try
         {
-            if (args.Length != 1)
-            {
-                await socket.SendAsync(RespResponseParser.ParseRespError("Not valid number of arguments"),
-                    SocketFlags.None, cancellationToken);
-                return;
-            }
             var result = await keyValueRepository.GetAsync(args[0]);
             await socket.SendAsync(RespResponseParser.ParseRespBulkString(result!),
                 SocketFlags.None, cancellationToken);
